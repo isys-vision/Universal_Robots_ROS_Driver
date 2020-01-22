@@ -224,19 +224,28 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
     tool_comm_setup->setTxIdleChars(tx_idle_chars);
   }
 
+  // Names of the joints. Usually, this is given in the controller config file.
+  if (!root_nh.getParam("hardware_interface/joints", joint_names_))
+  {
+    ROS_ERROR_STREAM("Cannot find required parameter " << root_nh.resolveName("hardware_interface/joints")
+                                                       << " on the parameter server.");
+    throw std::runtime_error("Cannot find required parameter "
+                             "'controller_joint_names' on the parameter server.");
+  }
+
   // Hash of the calibration reported by the robot. This is used for validating the robot
   // description is using the correct calibration. If the robot's calibration doesn't match this
   // hash, an error will be printed. You can use the robot as usual, however Cartesian poses of the
   // endeffector might be inaccurate. See the "ur_calibration" package on help how to generate your
   // own hash matching your actual robot.
   std::string calibration_checksum = robot_hw_nh.param<std::string>("kinematics/hash", "");
-  ROS_INFO_STREAM("Initializing dashboard client");
-  ros::NodeHandle dashboard_nh(robot_hw_nh, "dashboard");
-  dashboard_client_.reset(new DashboardClientROS(dashboard_nh, robot_ip_));
+//  ROS_INFO_STREAM("Initializing dashboard client");
+//  ros::NodeHandle dashboard_nh(robot_hw_nh, "dashboard");
+//  dashboard_client_.reset(new DashboardClientROS(dashboard_nh, robot_ip_));
   ROS_INFO_STREAM("Initializing urdriver");
   try
   {
-    ur_driver_.reset(new UrDriver(robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
+    ur_driver_.reset(new UrDriverLowBandwidth(robot_ip_, joint_names_, script_filename, output_recipe_filename, input_recipe_filename,
                                   std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1),
                                   headless_mode, std::move(tool_comm_setup), calibration_checksum,
                                   (uint32_t)reverse_port, (uint32_t)script_sender_port, servoj_gain,
@@ -262,15 +271,6 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   //   set_digital_out(0, True)
   // end
   command_sub_ = robot_hw_nh.subscribe("script_command", 1, &HardwareInterface::commandCallback, this);
-
-  // Names of the joints. Usually, this is given in the controller config file.
-  if (!root_nh.getParam("hardware_interface/joints", joint_names_))
-  {
-    ROS_ERROR_STREAM("Cannot find required parameter " << root_nh.resolveName("hardware_interface/joints")
-                                                       << " on the parameter server.");
-    throw std::runtime_error("Cannot find required parameter "
-                             "'controller_joint_names' on the parameter server.");
-  }
 
   // Create ros_control interfaces
   for (std::size_t i = 0; i < joint_positions_.size(); ++i)
@@ -473,24 +473,24 @@ void HardwareInterface::read(const ros::Time& time, const ros::Duration& period)
 
 void HardwareInterface::write(const ros::Time& time, const ros::Duration& period)
 {
-  if ((runtime_state_ == static_cast<uint32_t>(rtde_interface::RUNTIME_STATE::PLAYING) ||
-       runtime_state_ == static_cast<uint32_t>(rtde_interface::RUNTIME_STATE::PAUSING)) &&
-      robot_program_running_ && (!non_blocking_read_ || packet_read_))
-  {
-    if (position_controller_running_)
-    {
-      ur_driver_->writeJointCommand(joint_position_command_, comm::ControlMode::MODE_SERVOJ);
-    }
-    else if (velocity_controller_running_)
-    {
-      ur_driver_->writeJointCommand(joint_velocity_command_, comm::ControlMode::MODE_SPEEDJ);
-    }
-    else
-    {
-      ur_driver_->writeKeepalive();
-    }
-    packet_read_ = false;
-  }
+//  if ((runtime_state_ == static_cast<uint32_t>(rtde_interface::RUNTIME_STATE::PLAYING) ||
+//       runtime_state_ == static_cast<uint32_t>(rtde_interface::RUNTIME_STATE::PAUSING)) &&
+//      robot_program_running_ && (!non_blocking_read_ || packet_read_))
+//  {
+//    if (position_controller_running_)
+//    {
+//      ur_driver_->writeJointCommand(joint_position_command_, comm::ControlMode::MODE_SERVOJ);
+//    }
+//    else if (velocity_controller_running_)
+//    {
+//      ur_driver_->writeJointCommand(joint_velocity_command_, comm::ControlMode::MODE_SPEEDJ);
+//    }
+//    else
+//    {
+//      ur_driver_->writeKeepalive();
+//    }
+//    packet_read_ = false;
+//  }
 }
 
 bool HardwareInterface::prepareSwitch(const std::list<hardware_interface::ControllerInfo>& start_list,

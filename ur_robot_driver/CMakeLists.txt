@@ -101,10 +101,13 @@ add_library(ur_robot_driver
     src/rtde/text_message.cpp
     src/rtde/rtde_client.cpp
     src/ur/ur_driver.cpp
+    src/ur/ur_driver_low_bandwidth.cpp
     src/ur/calibration_checker.cpp
     src/ur/dashboard_client.cpp
     src/ur/tool_communication.cpp
     src/rtde/rtde_writer.cpp
+    src/ros/lowbandwidth_trajectory_follower.cpp
+    src/ros/action_server.cpp
 )
 target_link_libraries(ur_robot_driver ${catkin_LIBRARIES})
 add_dependencies(ur_robot_driver ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

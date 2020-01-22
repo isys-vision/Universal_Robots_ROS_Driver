@@ -49,6 +49,7 @@
 #include <ur_controllers/scaled_joint_command_interface.h>
 
 #include "ur_robot_driver/ur/ur_driver.h"
+#include "ur_robot_driver/ur/ur_driver_low_bandwidth.h"
 #include <ur_robot_driver/ros/dashboard_client_ros.h>
 
 #include <ur_dashboard_msgs/RobotMode.h>
@@ -193,7 +194,7 @@ protected:
   bool zeroFTSensor(std_srvs::TriggerRequest& req, std_srvs::TriggerResponse& res);
   void commandCallback(const std_msgs::StringConstPtr& msg);
 
-  std::unique_ptr<UrDriver> ur_driver_;
+  std::unique_ptr<UrDriverLowBandwidth> ur_driver_;
   std::unique_ptr<DashboardClientROS> dashboard_client_;
 
   ros::ServiceServer deactivate_srv_;

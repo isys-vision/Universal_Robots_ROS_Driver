@@ -62,11 +62,11 @@ ur_driver::UrDriverLowBandwidth::UrDriverLowBandwidth(const std::string& robot_i
                               std::unique_ptr<ToolCommSetup> tool_comm_setup, const std::string& calibration_checksum,
                               const uint32_t reverse_port, const uint32_t script_sender_port)
     : time_interval_(0.008)
-    , servoj_time_(0.008)
+    , servoj_time_(0.002)
     , servoj_time_waiting_(0.001)
     , max_waiting_time_(2.0)
     , servoj_gain_(300.0)
-    , servoj_lookahead_time_(0.03)
+    , servoj_lookahead_time_(0.1)
     , max_joint_difference_(0.01)
     , max_velocity_ (10.0)
     , joint_names_(joint_names)

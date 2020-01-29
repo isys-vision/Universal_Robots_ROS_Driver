@@ -96,17 +96,26 @@ void LowBandwidthTrajectoryFollower::runSocketComm()
 
         int sent_message_num = -1;
         char *line[MAX_SERVER_BUF_LEN];
+        std::vector<TrajectoryPoint> current_trajectory;
 
 
         while (true) {   // keepalive and process trajectory loop
 
-            std::unique_lock<std::mutex> trajectory_lock (trajectory_mutex_);
+            // Fetch new trajectories, trajectory_execution_finished_ signals status
+            if (current_trajectory.empty()){
+                std::unique_lock<std::mutex> trajectory_lock (trajectory_mutex_);
+                current_trajectory = trajectory_;
+                trajectory_.clear();
+            }
+            int current_trajectory_size = static_cast<int>(current_trajectory.size());
 
+            // Read data from robot: we expect a package in each timestep.
+            // Either we receive next requested point or same point index which has already be sent.
             if (!server_->readLine((char *)line, MAX_SERVER_BUF_LEN)) {
               LOG_INFO("Connection to robot lost!");
               connected_ = false;
-              trajectory_.clear();
               trajectory_execution_finished_ = true;
+              current_trajectory.clear();
               server_->disconnectClient();
               break;
             }
@@ -115,34 +124,33 @@ void LowBandwidthTrajectoryFollower::runSocketComm()
             if (req_message_num == -1) {
                LOG_DEBUG("Received success message");
                trajectory_execution_success_ = true;
-               trajectory_.clear();
                sent_message_num = -1;
                trajectory_execution_finished_ = true;
+               current_trajectory.clear();
                continue;
-            } else if (req_message_num > sent_message_num && !trajectory_.empty()){
+            } else if (req_message_num > sent_message_num && !current_trajectory.empty()){
                 LOG_DEBUG("Received request from robot: %i", req_message_num);
-                int trajectory_size = static_cast<int>(trajectory_.size());
 
-                if (cancel_request_) {
-                    LOG_DEBUG("Cancel requested, sending sentinel: %i", req_message_num);
-                    trajectory_execution_success_ = executePoint(EMPTY_VALUES, EMPTY_VALUES, req_message_num, 0.0, true);
-                } else if (sent_message_num < req_message_num) {
-                    if (req_message_num < trajectory_size) {
+                if (sent_message_num < req_message_num) {
+                    if (cancel_request_) {
+                        LOG_DEBUG("Cancel requested, sending sentinel: %i", req_message_num);
+                        trajectory_execution_success_ = executePoint(EMPTY_VALUES, EMPTY_VALUES, req_message_num, 0.0, true);
+                    } else if (req_message_num < current_trajectory_size) {
                         LOG_DEBUG("Sending waypoint: %i", req_message_num);
-                        trajectory_execution_success_ = executePoint(trajectory_[req_message_num].positions, trajectory_[req_message_num].velocities, req_message_num,
-                                    trajectory_[req_message_num].time_from_start.count() / 1e6, false);
-                    } else if (req_message_num >= trajectory_size) {
+                        trajectory_execution_success_ = executePoint(current_trajectory[req_message_num].positions, current_trajectory[req_message_num].velocities, req_message_num,
+                                    current_trajectory[req_message_num].time_from_start.count() / 1e6, false);
+                    } else if (req_message_num >= current_trajectory_size) {
                         LOG_DEBUG("Sending sentinel: %i", req_message_num);
                         trajectory_execution_success_ = executePoint(EMPTY_VALUES, EMPTY_VALUES, req_message_num, 0.0, true);
                     }
-                    sent_message_num = req_message_num;
                 }
+                sent_message_num = req_message_num;
 
 
                 if (!trajectory_execution_success_) {
-                    trajectory_.clear();
                     sent_message_num = -1;
                     trajectory_execution_finished_ = true;
+                    current_trajectory.clear();
                     continue;
                 }
             } else {

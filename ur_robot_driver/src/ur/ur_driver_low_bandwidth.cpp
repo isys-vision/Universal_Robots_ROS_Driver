@@ -45,10 +45,8 @@ namespace ur_driver
 static const std::array<double, 6> EMPTY_VALUES = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
 static const std::string BEGIN_REPLACE("{{BEGIN_REPLACE}}");
-static const std::string TIME_INTERVAL("{{TIME_INTERVAL}}");
 static const std::string SERVOJ_TIME("{{SERVOJ_TIME}}");
 static const std::string SERVOJ_TIME_WAITING("{{SERVOJ_TIME_WAITING}}");
-static const std::string MAX_WAITING_TIME("{{MAX_WAITING_TIME}}");
 static const std::string SERVOJ_GAIN("{{SERVOJ_GAIN}}");
 static const std::string SERVOJ_LOOKAHEAD_TIME("{{SERVOJ_LOOKAHEAD_TIME}}");
 static const std::string REVERSE_IP("{{REVERSE_IP}}");
@@ -61,13 +59,11 @@ ur_driver::UrDriverLowBandwidth::UrDriverLowBandwidth(const std::string& robot_i
                               std::function<void(bool)> handle_program_state, bool headless_mode,
                               std::unique_ptr<ToolCommSetup> tool_comm_setup, const std::string& calibration_checksum,
                               const uint32_t reverse_port, const uint32_t script_sender_port)
-    : time_interval_(0.008)
-    , servoj_time_(0.002)
+    : servoj_time_(0.002)
     , servoj_time_waiting_(0.001)
-    , max_waiting_time_(2.0)
     , servoj_gain_(300.0)
     , servoj_lookahead_time_(0.1)
-    , max_joint_difference_(0.01)
+    , max_joint_difference_(0.0001)
     , max_velocity_ (10.0)
     , joint_names_(joint_names)
     , reverse_interface_active_(false)
@@ -93,30 +89,29 @@ ur_driver::UrDriverLowBandwidth::UrDriverLowBandwidth(const std::string& robot_i
   }
 
   std::string local_ip = rtde_client_->getIP();
+  robot_version_ = rtde_client_->getVersion();
+  reverse_port_ = reverse_port;
 
-  ros::param::get("~time_interval", time_interval_);
   ros::param::get("~servoj_time", servoj_time_);
   ros::param::get("~servoj_time_waiting", servoj_time_waiting_);
-  ros::param::get("~max_waiting_time", max_waiting_time_);
   ros::param::get("~servoj_gain", servoj_gain_);
   ros::param::get("~servoj_lookahead_time", servoj_lookahead_time_);
   ros::param::get("~max_joint_difference", max_joint_difference_);
   ros::param::get("~max_velocity", max_velocity_);
 
+  LOG_INFO("Used parameters (UR script):");
+  LOG_INFO("  servoj_time %f, servoj_time_waiting %f, "
+           "servoj_gain: %f, servoj_lookahead_time: %f, max_joint_difference: %f, max_velocity: %f",
+           servoj_time_, servoj_time_waiting_, servoj_gain_, servoj_lookahead_time_, max_joint_difference_, max_velocity_);
+
   std::string prog = readScriptFile(script_file);
-  prog.replace(prog.find(TIME_INTERVAL), TIME_INTERVAL.length(), std::to_string(time_interval_));
   prog.replace(prog.find(SERVOJ_TIME_WAITING), SERVOJ_TIME_WAITING.length(), std::to_string(servoj_time_waiting_));
   prog.replace(prog.find(SERVOJ_TIME), SERVOJ_TIME.length(), std::to_string(servoj_time_));
-  prog.replace(prog.find(MAX_WAITING_TIME), MAX_WAITING_TIME.length(), std::to_string(max_waiting_time_));
   prog.replace(prog.find(SERVOJ_GAIN), SERVOJ_GAIN.length(), std::to_string(servoj_gain_));
   prog.replace(prog.find(SERVOJ_LOOKAHEAD_TIME), SERVOJ_LOOKAHEAD_TIME.length(), std::to_string(servoj_lookahead_time_));
   prog.replace(prog.find(REVERSE_IP), REVERSE_IP.length(), local_ip);
   prog.replace(prog.find(REVERSE_PORT), REVERSE_PORT.length(), std::to_string(reverse_port));
   prog.replace(prog.find(MAX_JOINT_DIFFERENCE), MAX_JOINT_DIFFERENCE.length(), std::to_string(max_joint_difference_));
-
-  robot_version_ = rtde_client_->getVersion();
-
-  reverse_port_ = reverse_port;
 
   traj_follower_.reset(new LowBandwidthTrajectoryFollower(reverse_port, robot_version_.major >= 3));
   action_server_.reset(new ActionServer(traj_follower_, joint_names_, max_velocity_));

@@ -211,7 +211,7 @@ private:
   std::unique_ptr<ActionServer> action_server_;
 
 
-  double time_interval_, servoj_time_, servoj_time_waiting_, max_waiting_time_, servoj_gain_, servoj_lookahead_time_,
+  double servoj_time_, servoj_time_waiting_, servoj_gain_, servoj_lookahead_time_,
       max_joint_difference_, max_velocity_;
 
   std::vector<std::string> joint_names_;

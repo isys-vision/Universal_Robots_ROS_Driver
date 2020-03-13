@@ -96,6 +96,10 @@ ur_driver::UrDriverLowBandwidth::UrDriverLowBandwidth(const std::string& robot_i
   robot_version_ = rtde_client_->getVersion();
   reverse_port_ = reverse_port;
 
+  // older UR controller use lower update rates
+  if (robot_version_.major < 5) servoj_time_ = 0.008;
+  else servoj_time_ = 0.002;
+
   ros::param::get("~servoj_time", servoj_time_);
   ros::param::get("~servoj_time_waiting", servoj_time_waiting_);
   ros::param::get("~servoj_gain", servoj_gain_);
@@ -103,6 +107,7 @@ ur_driver::UrDriverLowBandwidth::UrDriverLowBandwidth(const std::string& robot_i
   ros::param::get("~max_joint_difference", max_joint_difference_);
   ros::param::get("~max_velocity", max_velocity_);
 
+  LOG_INFO("UR control version: %i.%i.%i-%i", robot_version_.major, robot_version_.minor, robot_version_.bugfix, robot_version_.build);
   LOG_INFO("Used parameters (UR script):");
   LOG_INFO("  servoj_time %f, servoj_time_waiting %f, "
            "servoj_gain: %f, servoj_lookahead_time: %f, max_joint_difference: %f, max_velocity: %f",

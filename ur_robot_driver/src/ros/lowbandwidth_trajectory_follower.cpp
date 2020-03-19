@@ -44,8 +44,10 @@ bool LowBandwidthTrajectoryFollower::executePoint(const std::array<double, 6> &p
                                                      const std::array<double, 6> &velocities, double sample_number,
                                                      double time_in_seconds, bool is_sentinel)
 {
-  if (!connected_ && server_)
+  if (!connected_ && server_) {
+    LOG_ERROR("Execute Point not possible, no connection to robot");
     return false;
+  }
 
   std::ostringstream out;
 

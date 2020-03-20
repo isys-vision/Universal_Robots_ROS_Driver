@@ -91,7 +91,6 @@ ur_driver::UrDriverLowBandwidth::UrDriverLowBandwidth(const std::string& robot_i
     throw UrException("Initialization of RTDE client went wrong.");
   }
 
-  rtde_frequency_ = rtde_client_->getMaxFrequency();
   std::string local_ip = rtde_client_->getIP();
   robot_version_ = rtde_client_->getVersion();
   reverse_port_ = reverse_port;

@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.org/UniversalRobots/Universal_Robots_ROS_Driver.svg?branch=master)](https://travis-ci.org/UniversalRobots/Universal_Robots_ROS_Driver)
-
+[![Build badge](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/workflows/Industrial%20CI%20pipeline/badge.svg?branch=master&event=push)](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/actions)
 
 # Universal_Robots_ROS_Driver
 Universal Robots have become a dominant supplier of lightweight, robotic manipulators for industry, as well as for scientific research and education. The Robot Operating System (ROS) has developed from a community-centered movement to a mature framework and quasi standard, providing a rich set of powerful tools for robot engineers and researchers, working in many different domains.
@@ -110,7 +109,7 @@ $ git clone -b calibration_devel https://github.com/fmauch/universal_robot.git s
 # install dependencies
 $ sudo apt update -qq
 $ rosdep update
-$ rosdep install --from-path src --ignore-src -y
+$ rosdep install --from-paths src --ignore-src -y
 
 # build the workspace
 $ catkin_make
@@ -158,8 +157,10 @@ We recommend keeping calibrations for all robots in your organization in a commo
 [package's documentation](ur_calibration/README.md) for details.
 
 #### Quick start
-Once the driver is built and the **externalcontrol** URCap is installed and running on the robot, you are good
-to go ahead starting the driver. (**Note**: We do recommend, though, to calibrate your robot first.)
+Once the driver is built and the **externalcontrol** URCap is installed on the
+robot, you are good to go ahead starting the driver. (**Note**: We do
+recommend, though, to [extract your robot's
+calibration](#extract-calibration-information) first.)
 
 To actually start the robot driver use one of the existing launch files
 
@@ -178,10 +179,13 @@ an error during startup, but will remain usable.
 
 For more information on the launch file's parameters see its own documentation.
 
-Once the robot driver is started, load the previously generated program on the robot panel and
-execute it. From that moment on the robot is fully functional. You can make use of the pause
-function or even stop the program. Simply press the play button again and the ROS driver will
-reconnect.
+Once the robot driver is started, load the [previously generated program](#prepare-the-robot) on the
+robot panel that will start the *External Control* program node and execute it. From that moment on
+the robot is fully functional. You can make use of the *Pause* function or even *Stop* (◾) the
+program.  Simply press the *Play* button (▶) again and the ROS driver will reconnect.
+
+Inside the ROS terminal running the driver you should see the output `Robot ready to receive control commands.`
+
 
 To control the robot using ROS, use the action server on
 

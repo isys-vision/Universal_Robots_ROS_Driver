@@ -17,6 +17,7 @@ find_package(catkin REQUIRED
     hardware_interface
     industrial_robot_status_interface
     pluginlib
+    rosconsole_bridge
     roscpp
     sensor_msgs
     std_srvs
@@ -43,6 +44,7 @@ catkin_package(
     geometry_msgs
     hardware_interface
     pluginlib
+    rosconsole_bridge
     roscpp
     sensor_msgs
     tf
@@ -82,16 +84,20 @@ include_directories(
 )
 
 add_library(ur_robot_driver_plugin
+  src/action_server.cpp
   src/dashboard_client_ros.cpp
   src/hardware_interface.cpp
+  src/lowbandwidth_trajectory_follower.cpp
 )
 target_link_libraries(ur_robot_driver_plugin ur_client_library::urcl ${catkin_LIBRARIES})
 add_dependencies(ur_robot_driver_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(ur_robot_driver_node
+  src/action_server.cpp
   src/dashboard_client_ros.cpp
   src/hardware_interface.cpp
   src/hardware_interface_node.cpp
+  src/lowbandwidth_trajectory_follower.cpp
 )
 target_link_libraries(ur_robot_driver_node ${catkin_LIBRARIES} ur_client_library::urcl)
 add_dependencies(ur_robot_driver_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

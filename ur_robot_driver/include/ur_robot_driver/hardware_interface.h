@@ -49,6 +49,9 @@
 #include <ur_controllers/scaled_joint_command_interface.h>
 
 #include <ur_client_library/ur/ur_driver.h>
+#include <ur_client_library/ur/ur_driver_low_bandwidth.h>
+#include <ur_robot_driver/action_trajectory_follower_interface.h>
+#include <ur_robot_driver/action_server.h>
 #include <ur_robot_driver/dashboard_client_ros.h>
 
 #include <ur_dashboard_msgs/RobotMode.h>
@@ -202,7 +205,7 @@ protected:
   bool zeroFTSensor(std_srvs::TriggerRequest& req, std_srvs::TriggerResponse& res);
   void commandCallback(const std_msgs::StringConstPtr& msg);
 
-  std::unique_ptr<urcl::UrDriver> ur_driver_;
+  std::unique_ptr<urcl::UrDriverLowBandwidth> ur_driver_;
   std::unique_ptr<DashboardClientROS> dashboard_client_;
 
   /*!
@@ -265,6 +268,9 @@ protected:
   ros::ServiceServer set_io_srv_;
   ros::ServiceServer resend_robot_program_srv_;
   ros::Subscriber command_sub_;
+
+  std::shared_ptr<ActionTrajectoryFollowerInterface> traj_follower_;
+  std::unique_ptr<ActionServer> action_server_;
 
   industrial_robot_status_interface::RobotStatus robot_status_resource_{};
   industrial_robot_status_interface::IndustrialRobotStatusInterface robot_status_interface_{};

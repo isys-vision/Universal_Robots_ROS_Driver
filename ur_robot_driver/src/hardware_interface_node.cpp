@@ -25,6 +25,7 @@
  */
 //----------------------------------------------------------------------
 #include <ros/ros.h>
+#include <rosconsole_bridge/bridge.h>
 #include <controller_manager/controller_manager.h>
 
 #include <csignal>
@@ -42,6 +43,8 @@ void signalHandler(int signum)
 
   exit(signum);
 }
+
+REGISTER_ROSCONSOLE_BRIDGE;
 
 int main(int argc, char** argv)
 {

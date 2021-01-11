@@ -65,6 +65,9 @@
 
 #include <ur_client_library/ur/ur_driver.h>
 #include <ur_client_library/ur/robot_receive_timeout.h>
+#include <ur_client_library/ur/tool_communication.h>
+#include <ur_robot_driver/action_trajectory_follower_interface.h>
+#include <ur_robot_driver/action_server.h>
 #include <ur_robot_driver/dashboard_client_ros.h>
 
 #include <ur_dashboard_msgs/RobotMode.h>
@@ -97,7 +100,7 @@ public:
    * \brief Creates a new HardwareInterface object.
    */
   HardwareInterface();
-  virtual ~HardwareInterface() = default;
+  ~HardwareInterface();
   /*!
    * \brief Handles the setup functionality for the ROS interface. This includes parsing ROS
    * parameters, creating interfaces, starting the main driver and advertising ROS services.
@@ -142,6 +145,14 @@ public:
    */
   virtual void doSwitch(const std::list<hardware_interface::ControllerInfo>& start_list,
                         const std::list<hardware_interface::ControllerInfo>& stop_list) override;
+
+  /*!
+   * \brief try to connect ur client driver
+   * Try to connect ur client
+   * \return success
+   */
+  bool tryConnectUrClient();
+  bool isUrClientConnected();
 
   /*!
    * \brief Getter for the current control frequency
@@ -241,6 +252,8 @@ protected:
 
   void passthroughTrajectoryDoneCb(urcl::control::TrajectoryResult result);
 
+  ros::NodeHandle robot_hw_nh_;
+
   ros::ServiceServer deactivate_srv_;
   ros::ServiceServer tare_sensor_srv_;
   ros::ServiceServer set_payload_srv_;
@@ -326,6 +339,9 @@ protected:
   ros::ServiceServer resend_robot_program_srv_;
   ros::Subscriber command_sub_;
 
+  std::shared_ptr<ActionTrajectoryFollowerInterface> traj_follower_;
+  std::unique_ptr<ActionServer> action_server_;
+
   industrial_robot_status_interface::RobotStatus robot_status_resource_{};
   industrial_robot_status_interface::IndustrialRobotStatusInterface robot_status_interface_{};
 
@@ -346,7 +362,7 @@ protected:
   ros::Publisher program_state_pub_;
 
   std::atomic<bool> controller_reset_necessary_;
-  bool controllers_initialized_;
+  std::atomic<bool> controllers_initialized_;
 
   bool packet_read_;
   bool non_blocking_read_;
@@ -354,6 +370,24 @@ protected:
   std::string robot_ip_;
   std::string tf_prefix_;
   urcl::RobotReceiveTimeout robot_receive_timeout_ = urcl::RobotReceiveTimeout::millisec(20);
+
+  std::string script_filename_;
+  std::string output_recipe_filename_;
+  std::string input_recipe_filename_;
+  bool headless_mode_;
+  bool use_tool_communication_;
+  urcl::ToolCommSetup tool_comm_setup_;
+  std::string calibration_checksum_;
+  std::string reverse_ip_;
+  uint32_t reverse_port_;
+  uint32_t script_sender_port_;
+  int trajectory_port_;
+  int script_command_port_;
+  double servoj_time_waiting_;
+  int servoj_gain_;
+  double servoj_lookahead_time_;
+  double max_joint_difference_;
+  double max_velocity_;
 };
 
 }  // namespace ur_driver

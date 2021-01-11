@@ -28,6 +28,7 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <ur_client_library/control/trajectory_point_interface.h>
 #include <ur_robot_driver/hardware_interface.h>
+#include <ur_robot_driver/lowbandwidth_trajectory_follower.h>
 #include <ur_client_library/ur/tool_communication.h>
 #include <ur_client_library/exceptions.h>
 
@@ -176,6 +177,11 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
     return false;
   }
 
+  // Low bandwidth trajectory follower urscript parameters
+  double max_joint_difference = robot_hw_nh.param("max_joint_difference", 0.0001);
+  double servoj_time_waiting = robot_hw_nh.param("servoj_time_waiting", 0.001);
+  double max_velocity = robot_hw_nh.param("max_velocity", 10.0);
+
   // Whenever the runtime state of the "External Control" program node in the UR-program changes, a
   // message gets published here. So this is equivalent to the information whether the robot accepts
   // commands from ROS side.
@@ -283,11 +289,18 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   ROS_INFO_STREAM("Initializing urdriver");
   try
   {
-    ur_driver_.reset(new urcl::UrDriver(
-        robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
-        std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1), headless_mode,
-        std::move(tool_comm_setup), (uint32_t)reverse_port, (uint32_t)script_sender_port, servoj_gain,
-        servoj_lookahead_time, non_blocking_read_, reverse_ip, trajectory_port, script_command_port));
+    // ur_driver_.reset(new urcl::UrDriver(
+    //     robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
+    //     std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1), headless_mode,
+    //     std::move(tool_comm_setup), (uint32_t)reverse_port, (uint32_t)script_sender_port, servoj_gain,
+    //     servoj_lookahead_time, non_blocking_read_, reverse_ip, trajectory_port, script_command_port));
+    ur_driver_.reset(
+        new urcl::UrDriverLowBandwidth(robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
+                           std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1),
+                           headless_mode, std::move(tool_comm_setup), calibration_checksum, (uint32_t)reverse_port,
+                           (uint32_t)script_sender_port, servoj_time_waiting, servoj_gain,
+                           servoj_lookahead_time, non_blocking_read_,
+                           max_joint_difference, max_velocity));
   }
   catch (urcl::ToolCommNotAvailable& e)
   {
@@ -453,6 +466,23 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
 
   ur_driver_->startRTDECommunication();
   ROS_INFO_STREAM_NAMED("hardware_interface", "Loaded ur_robot_driver hardware_interface");
+
+  // Setup the mounted payload through a ROS service
+  set_payload_srv_ = robot_hw_nh.advertiseService<ur_msgs::SetPayload::Request, ur_msgs::SetPayload::Response>(
+      "set_payload", [&](ur_msgs::SetPayload::Request& req, ur_msgs::SetPayload::Response& resp) {
+        std::stringstream cmd;
+        cmd.imbue(std::locale::classic());  // Make sure, decimal divider is actually '.'
+        cmd << "sec setup():" << std::endl
+            << " set_payload(" << req.payload << ", [" << req.center_of_gravity.x << ", " << req.center_of_gravity.y
+            << ", " << req.center_of_gravity.z << "])" << std::endl
+            << "end";
+        resp.success = this->ur_driver_->sendScript(cmd.str());
+        return true;
+      });
+
+  traj_follower_.reset(new LowBandwidthTrajectoryFollower(reverse_port, ur_driver_->getVersion().major >= 3));
+  action_server_.reset(new ActionServer(traj_follower_, joint_names_, max_velocity));
+  action_server_->start();
 
   return true;
 }
@@ -673,56 +703,56 @@ void HardwareInterface::read(const ros::Time& time, const ros::Duration& period)
 
 void HardwareInterface::write(const ros::Time& time, const ros::Duration& period)
 {
-  if ((runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PLAYING) ||
-       runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PAUSING)) &&
-      robot_program_running_ && (!non_blocking_read_ || packet_read_))
-  {
-    if (position_controller_running_)
-    {
-      ur_driver_->writeJointCommand(joint_position_command_, urcl::comm::ControlMode::MODE_SERVOJ);
-    }
-    else if (velocity_controller_running_)
-    {
-      ur_driver_->writeJointCommand(joint_velocity_command_, urcl::comm::ControlMode::MODE_SPEEDJ);
-    }
-    else if (joint_forward_controller_running_)
-    {
-      ur_driver_->writeTrajectoryControlMessage(urcl::control::TrajectoryControlMessage::TRAJECTORY_NOOP);
-    }
-    else if (cartesian_forward_controller_running_)
-    {
-      ur_driver_->writeTrajectoryControlMessage(urcl::control::TrajectoryControlMessage::TRAJECTORY_NOOP);
-    }
-    else if (twist_controller_running_)
-    {
-      cartesian_velocity_command_[0] = twist_command_.linear.x;
-      cartesian_velocity_command_[1] = twist_command_.linear.y;
-      cartesian_velocity_command_[2] = twist_command_.linear.z;
-      cartesian_velocity_command_[3] = twist_command_.angular.x;
-      cartesian_velocity_command_[4] = twist_command_.angular.y;
-      cartesian_velocity_command_[5] = twist_command_.angular.z;
-      ur_driver_->writeJointCommand(cartesian_velocity_command_, urcl::comm::ControlMode::MODE_SPEEDL);
-    }
-    else if (pose_controller_running_)
-    {
-      cartesian_pose_command_[0] = pose_command_.position.x;
-      cartesian_pose_command_[1] = pose_command_.position.y;
-      cartesian_pose_command_[2] = pose_command_.position.z;
+  // if ((runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PLAYING) ||
+  //      runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PAUSING)) &&
+  //     robot_program_running_ && (!non_blocking_read_ || packet_read_))
+  // {
+  //   if (position_controller_running_)
+  //   {
+  //     ur_driver_->writeJointCommand(joint_position_command_, urcl::comm::ControlMode::MODE_SERVOJ);
+  //   }
+  //   else if (velocity_controller_running_)
+  //   {
+  //     ur_driver_->writeJointCommand(joint_velocity_command_, urcl::comm::ControlMode::MODE_SPEEDJ);
+  //   }
+  //   else if (joint_forward_controller_running_)
+  //   {
+  //     ur_driver_->writeTrajectoryControlMessage(urcl::control::TrajectoryControlMessage::TRAJECTORY_NOOP);
+  //   }
+  //   else if (cartesian_forward_controller_running_)
+  //   {
+  //     ur_driver_->writeTrajectoryControlMessage(urcl::control::TrajectoryControlMessage::TRAJECTORY_NOOP);
+  //   }
+  //   else if (twist_controller_running_)
+  //   {
+  //     cartesian_velocity_command_[0] = twist_command_.linear.x;
+  //     cartesian_velocity_command_[1] = twist_command_.linear.y;
+  //     cartesian_velocity_command_[2] = twist_command_.linear.z;
+  //     cartesian_velocity_command_[3] = twist_command_.angular.x;
+  //     cartesian_velocity_command_[4] = twist_command_.angular.y;
+  //     cartesian_velocity_command_[5] = twist_command_.angular.z;
+  //     ur_driver_->writeJointCommand(cartesian_velocity_command_, urcl::comm::ControlMode::MODE_SPEEDL);
+  //   }
+  //   else if (pose_controller_running_)
+  //   {
+  //     cartesian_pose_command_[0] = pose_command_.position.x;
+  //     cartesian_pose_command_[1] = pose_command_.position.y;
+  //     cartesian_pose_command_[2] = pose_command_.position.z;
 
-      KDL::Rotation rot = KDL::Rotation::Quaternion(pose_command_.orientation.x, pose_command_.orientation.y,
-                                                    pose_command_.orientation.z, pose_command_.orientation.w);
-      cartesian_pose_command_[3] = rot.GetRot().x();
-      cartesian_pose_command_[4] = rot.GetRot().y();
-      cartesian_pose_command_[5] = rot.GetRot().z();
+  //     KDL::Rotation rot = KDL::Rotation::Quaternion(pose_command_.orientation.x, pose_command_.orientation.y,
+  //                                                   pose_command_.orientation.z, pose_command_.orientation.w);
+  //     cartesian_pose_command_[3] = rot.GetRot().x();
+  //     cartesian_pose_command_[4] = rot.GetRot().y();
+  //     cartesian_pose_command_[5] = rot.GetRot().z();
 
-      ur_driver_->writeJointCommand(cartesian_pose_command_, urcl::comm::ControlMode::MODE_POSE);
-    }
-    else
-    {
-      ur_driver_->writeKeepalive();
-    }
-    packet_read_ = false;
-  }
+  //     ur_driver_->writeJointCommand(cartesian_pose_command_, urcl::comm::ControlMode::MODE_POSE);
+  //   }
+  //   else
+  //   {
+  //     ur_driver_->writeKeepalive();
+  //   }
+  //   packet_read_ = false;
+  // }
 }
 
 bool HardwareInterface::prepareSwitch(const std::list<hardware_interface::ControllerInfo>& start_list,

@@ -16,9 +16,19 @@
   <arg name="script_command_port" default="50004" doc="Port that will be opened by the driver to allow forwarding script commands to the robot."/>
   <arg name="kinematics_config" doc="Kinematics config file used for calibration correction. This will be used to verify the robot's calibration is matching the robot_description. Pass the same config file that is passed to the robot_description."/>
   <arg name="tf_prefix" default="" doc="tf_prefix used for the robot."/>
+<<<<<<< HEAD
   <arg name="controllers" default="joint_state_controller scaled_pos_joint_traj_controller force_torque_sensor_controller robot_status_controller"/>
   <arg name="stopped_controllers" default="joint_group_vel_controller forward_joint_traj_controller forward_cartesian_traj_controller"/>
   <arg name="urscript_file" default="$(find ur_client_library)/resources/external_control.urscript" doc="Path to URScript that will be sent to the robot and that forms the main control program."/>
+||||||| parent of 523f824 (Ported (low bandwidth) trajectory execution)
+  <arg name="controllers" default="joint_state_controller vel_based_pos_joint_traj_controller force_torque_sensor_controller robot_status_controller"/>
+  <arg name="stopped_controllers" default="joint_group_vel_controller"/>
+  <arg name="urscript_file" default="$(find ur_robot_driver)/resources/ros_control.urscript" doc="Path to URScript that will be sent to the robot and that forms the main control program."/>
+=======
+  <arg name="controllers" default="joint_state_controller vel_based_pos_joint_traj_controller force_torque_sensor_controller robot_status_controller"/>
+  <arg name="stopped_controllers" default="joint_group_vel_controller"/>
+  <arg name="urscript_file" default="$(find ur_robot_driver)/resources/low_bandwidth_servoj.urscript" doc="Path to URScript that will be sent to the robot and that forms the main control program."/>
+>>>>>>> 523f824 (Ported (low bandwidth) trajectory execution)
   <arg name="rtde_output_recipe_file" default="$(find ur_robot_driver)/resources/rtde_output_recipe.txt" doc="Recipe file used for the RTDE-outputs. Only change this if you know what you're doing."/>
   <arg name="rtde_input_recipe_file" default="$(find ur_robot_driver)/resources/rtde_input_recipe.txt" doc="Recipe file used for the RTDE-inputs. Only change this if you know what you're doing."/>
   <arg name="tool_voltage" default="0" doc="Tool voltage set at the beginning of the UR program. Only used, when `use_tool_communication` is set to true."/>
@@ -30,9 +40,18 @@
   <arg name="tool_device_name" default="/tmp/ttyUR" doc="Local device name used for tool communication. Only used, when `use_tool_communication` is set to true."/>
   <arg name="tool_tcp_port" default="54321" doc="Port on which the robot controller publishes the tool comm interface. Only used, when `use_tool_communication` is set to true."/>
   <arg name="headless_mode" default="false" doc="Automatically send URScript to robot to execute. On e-Series this does require the robot to be in 'remote-control' mode. With this, the URCap is not needed on the robot."/>
+<<<<<<< HEAD
   <arg name="servoj_gain" default="2000" doc="Specify gain for servoing to position in joint space. A higher gain can sharpen the trajectory."/>
   <arg name="servoj_lookahead_time" default="0.03" doc="Specify lookahead time for servoing to position in joint space. A longer lookahead time can smooth the trajectory."/>
   <arg name="ur_hardware_interface_node_required" default="true" doc="Shut down ros environment if ur_hardware_interface-node dies."/>
+||||||| parent of 523f824 (Ported (low bandwidth) trajectory execution)
+=======
+  <arg name="servoj_gain" default="300.0" />
+  <arg name="servoj_lookahead_time" default="0.1" />
+  <arg name="servoj_time_waiting" default="0.001" />
+  <arg name="max_velocity" default="10.0" />
+  <arg name="max_joint_difference" default="0.01" />
+>>>>>>> 523f824 (Ported (low bandwidth) trajectory execution)
 
   <!-- Load hardware interface -->
   <node name="ur_hardware_interface" pkg="ur_robot_driver" type="ur_robot_driver_node" output="screen" launch-prefix="$(arg launch_prefix)" required="$(arg ur_hardware_interface_node_required)">
@@ -56,8 +75,17 @@
     <param name="tool_stop_bits" value="$(arg tool_stop_bits)"/>
     <param name="tool_rx_idle_chars" value="$(arg tool_rx_idle_chars)"/>
     <param name="tool_tx_idle_chars" value="$(arg tool_tx_idle_chars)"/>
+<<<<<<< HEAD
     <param name="servoj_gain" value="$(arg servoj_gain)"/>
     <param name="servoj_lookahead_time" value="$(arg servoj_lookahead_time)"/>
+||||||| parent of 523f824 (Ported (low bandwidth) trajectory execution)
+=======
+    <param name="servoj_gain" value="$(arg servoj_gain)" />
+    <param name="servoj_lookahead_time" value="$(arg servoj_lookahead_time)" />
+    <param name="servoj_time_waiting" value="$(arg servoj_time_waiting)" />
+    <param name="max_velocity" value="$(arg max_velocity)" />
+    <param name="max_joint_difference" value="$(arg max_joint_difference)" />
+>>>>>>> 523f824 (Ported (low bandwidth) trajectory execution)
   </node>
 
   <!-- Starts socat to bridge the robot's tool communication interface to a local tty device -->

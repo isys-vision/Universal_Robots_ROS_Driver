@@ -18,6 +18,7 @@ find_package(catkin REQUIRED
     hardware_interface
     industrial_robot_status_interface
     pluginlib
+    rosconsole_bridge
     roscpp
     scaled_joint_trajectory_controller
     sensor_msgs
@@ -52,6 +53,7 @@ catkin_package(
     kdl_parser
     pass_through_controllers
     pluginlib
+    rosconsole_bridge
     roscpp
     scaled_joint_trajectory_controller
     sensor_msgs
@@ -81,8 +83,10 @@ include_directories(
 )
 
 add_library(ur_robot_driver_plugin
+  src/action_server.cpp
   src/dashboard_client_ros.cpp
   src/hardware_interface.cpp
+  src/lowbandwidth_trajectory_follower.cpp
 )
 target_link_libraries(ur_robot_driver_plugin ur_client_library::urcl ${catkin_LIBRARIES})
 add_dependencies(ur_robot_driver_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -93,9 +97,11 @@ add_library(urcl_log_handler
 target_link_libraries(urcl_log_handler ${catkin_LIBRARIES} ur_client_library::urcl)
 
 add_executable(ur_robot_driver_node
+  src/action_server.cpp
   src/dashboard_client_ros.cpp
   src/hardware_interface.cpp
   src/hardware_interface_node.cpp
+  src/lowbandwidth_trajectory_follower.cpp
 )
 target_link_libraries(ur_robot_driver_node ${catkin_LIBRARIES} ur_client_library::urcl urcl_log_handler)
 add_dependencies(ur_robot_driver_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

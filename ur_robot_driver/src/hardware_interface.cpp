@@ -28,6 +28,7 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <ur_client_library/control/trajectory_point_interface.h>
 #include <ur_robot_driver/hardware_interface.h>
+#include <ur_robot_driver/lowbandwidth_trajectory_follower.h>
 #include <ur_client_library/ur/tool_communication.h>
 #include <ur_client_library/exceptions.h>
 
@@ -180,6 +181,11 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   // or movel commands are used
   use_spline_interpolation_ = robot_hw_nh.param<bool>("use_spline_interpolation", "true");
 
+  // Low bandwidth trajectory follower urscript parameters
+  double max_joint_difference = robot_hw_nh.param("max_joint_difference", 0.0001);
+  double servoj_time_waiting = robot_hw_nh.param("servoj_time_waiting", 0.001);
+  double max_velocity = robot_hw_nh.param("max_velocity", 10.0);
+
   // Whenever the runtime state of the "External Control" program node in the UR-program changes, a
   // message gets published here. So this is equivalent to the information whether the robot accepts
   // commands from ROS side.
@@ -287,11 +293,13 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   ROS_INFO_STREAM("Initializing urdriver");
   try
   {
-    ur_driver_.reset(new urcl::UrDriver(
-        robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
-        std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1), headless_mode,
-        std::move(tool_comm_setup), (uint32_t)reverse_port, (uint32_t)script_sender_port, servoj_gain,
-        servoj_lookahead_time, non_blocking_read_, reverse_ip, trajectory_port, script_command_port));
+    ur_driver_.reset(
+        new urcl::UrDriverLowBandwidth(robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
+                           std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1),
+                           headless_mode, std::move(tool_comm_setup), calibration_checksum, (uint32_t)reverse_port,
+                           (uint32_t)script_sender_port, servoj_time_waiting, servoj_gain,
+                           servoj_lookahead_time, non_blocking_read_,
+                           max_joint_difference, max_velocity));
   }
   catch (urcl::ToolCommNotAvailable& e)
   {
@@ -462,6 +470,10 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
 
   ur_driver_->startRTDECommunication();
   ROS_INFO_STREAM_NAMED("hardware_interface", "Loaded ur_robot_driver hardware_interface");
+
+  traj_follower_.reset(new LowBandwidthTrajectoryFollower(reverse_port, ur_driver_->getVersion().major >= 3));
+  action_server_.reset(new ActionServer(traj_follower_, joint_names_, max_velocity));
+  action_server_->start();
 
   return true;
 }
@@ -682,7 +694,7 @@ void HardwareInterface::read(const ros::Time& time, const ros::Duration& period)
 
 void HardwareInterface::write(const ros::Time& time, const ros::Duration& period)
 {
-  if ((runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PLAYING) ||
+  /* if ((runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PLAYING) ||
        runtime_state_ == static_cast<uint32_t>(rtde::RUNTIME_STATE::PAUSING)) &&
       robot_program_running_ && (!non_blocking_read_ || packet_read_))
   {
@@ -731,7 +743,7 @@ void HardwareInterface::write(const ros::Time& time, const ros::Duration& period
       ur_driver_->writeKeepalive();
     }
     packet_read_ = false;
-  }
+  } */
 }
 
 bool HardwareInterface::prepareSwitch(const std::list<hardware_interface::ControllerInfo>& start_list,

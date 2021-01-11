@@ -64,6 +64,8 @@
 #include <scaled_joint_trajectory_controller/scaled_joint_command_interface.h>
 
 #include <ur_client_library/ur/ur_driver.h>
+#include <ur_robot_driver/action_trajectory_follower_interface.h>
+#include <ur_robot_driver/action_server.h>
 #include <ur_robot_driver/dashboard_client_ros.h>
 
 #include <ur_dashboard_msgs/RobotMode.h>
@@ -324,6 +326,9 @@ protected:
   ros::ServiceServer set_analog_output_srv_;
   ros::ServiceServer resend_robot_program_srv_;
   ros::Subscriber command_sub_;
+
+  std::shared_ptr<ActionTrajectoryFollowerInterface> traj_follower_;
+  std::unique_ptr<ActionServer> action_server_;
 
   industrial_robot_status_interface::RobotStatus robot_status_resource_{};
   industrial_robot_status_interface::IndustrialRobotStatusInterface robot_status_interface_{};

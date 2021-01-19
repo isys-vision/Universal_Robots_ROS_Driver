@@ -21,21 +21,15 @@
 
 static const std::array<double, 6> EMPTY_VALUES = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
-LowBandwidthTrajectoryFollower::LowBandwidthTrajectoryFollower(int reverse_port, bool version_3)
+LowBandwidthTrajectoryFollower::LowBandwidthTrajectoryFollower(uint32_t reverse_port, std::function<void(bool)> handle_program_state)
   : reverse_port_(reverse_port)
+  , handle_program_state_(handle_program_state)
     , comm_thread_()
     , connected_(false)
     , cancel_request_(false)
     , trajectory_execution_finished_(false)
     , trajectory_execution_success_(false)
 {
-
-  if (!version_3)
-  {
-    ROS_ERROR("Low Bandwidth Trajectory Follower only works for interface version > 3");
-    std::exit(-1);
-  }
-
   comm_thread_ = std::thread(&LowBandwidthTrajectoryFollower::runSocketComm, this);
   ROS_INFO("Low Bandwidth Trajectory Follower is initialized!");
 }
@@ -95,6 +89,7 @@ void LowBandwidthTrajectoryFollower::runSocketComm()
 
         ROS_INFO("Robot successfully connected");
         connected_ = true;
+        handle_program_state_(connected_);
 
         int sent_message_num = -1;
         char *line[MAX_SERVER_BUF_LEN];
@@ -116,6 +111,7 @@ void LowBandwidthTrajectoryFollower::runSocketComm()
             if (!server_->readLine((char *)line, MAX_SERVER_BUF_LEN)) {
               ROS_INFO("Connection to robot lost!");
               connected_ = false;
+              handle_program_state_(connected_);
               trajectory_execution_finished_ = true;
               current_trajectory.clear();
               server_->disconnectClient();
@@ -203,5 +199,10 @@ void LowBandwidthTrajectoryFollower::stop()
 //    return;
 
 //  server_->disconnectClient();
-//  connected_ = false;
+    //  connected_ = false;
+}
+
+bool LowBandwidthTrajectoryFollower::isConnected()
+{
+    return connected_;
 }

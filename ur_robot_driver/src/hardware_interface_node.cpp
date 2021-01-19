@@ -60,8 +60,11 @@ int main(int argc, char** argv)
   signal(SIGINT, signalHandler);
 
   std::ifstream realtime_file("/sys/kernel/realtime", std::ios::in);
-  bool has_realtime;
-  realtime_file >> has_realtime;
+  bool has_realtime = false;
+  if (realtime_file.is_open())
+  {
+    realtime_file >> has_realtime;
+  }
   if (has_realtime)
   {
     const int max_thread_priority = sched_get_priority_max(SCHED_FIFO);
@@ -121,6 +124,7 @@ int main(int argc, char** argv)
     ROS_ERROR_STREAM("Could not correctly initialize robot. Exiting");
     exit(1);
   }
+  g_hw_interface->tryConnectUrClient();
   ROS_DEBUG_STREAM("initialized hw interface");
   controller_manager::ControllerManager cm(g_hw_interface.get(), nh);
 
@@ -130,28 +134,46 @@ int main(int argc, char** argv)
   period.fromSec(std::chrono::duration_cast<std::chrono::duration<double>>(stopwatch_now - stopwatch_last).count());
   stopwatch_last = stopwatch_now;
 
-  double expected_cycle_time = 1.0 / (static_cast<double>(g_hw_interface->getControlFrequency()));
+  // Only required for warning logs. Attention, missing exception handling
+  // double expected_cycle_time = 1.0 / (static_cast<double>(g_hw_interface->getControlFrequency()));
 
   // Run as fast as possible
   while (ros::ok())
   {
-    // Receive current state from robot
-    g_hw_interface->read(timestamp, period);
-
-    // Get current time and elapsed time since last read
-    timestamp = ros::Time::now();
-    stopwatch_now = std::chrono::steady_clock::now();
-    period.fromSec(std::chrono::duration_cast<std::chrono::duration<double>>(stopwatch_now - stopwatch_last).count());
-    stopwatch_last = stopwatch_now;
-
-    cm.update(timestamp, period, g_hw_interface->shouldResetControllers());
-
-    g_hw_interface->write(timestamp, period);
-    // if (!control_rate.sleep())
-    if (period.toSec() > expected_cycle_time)
+    if (!g_hw_interface->isUrClientConnected())
     {
-      // ROS_WARN_STREAM("Could not keep cycle rate of " << expected_cycle_time * 1000 << "ms");
-      // ROS_WARN_STREAM("Actual cycle time:" << period.toNSec() / 1000000.0 << "ms");
+      ROS_ERROR_THROTTLE(5.0, "Ur Client not connected. Trying to reconnect..");
+      if (!g_hw_interface->tryConnectUrClient())
+      {
+        ROS_ERROR_THROTTLE(5.0, "Reconnecting failed.");
+        ros::Duration(1.0).sleep();
+        continue;
+      }
+    }
+
+    try {
+      // Receive current state from robot
+      g_hw_interface->read(timestamp, period);
+
+      // Get current time and elapsed time since last read
+      timestamp = ros::Time::now();
+      stopwatch_now = std::chrono::steady_clock::now();
+      period.fromSec(std::chrono::duration_cast<std::chrono::duration<double>>(stopwatch_now - stopwatch_last).count());
+      stopwatch_last = stopwatch_now;
+
+      cm.update(timestamp, period, g_hw_interface->shouldResetControllers());
+
+      g_hw_interface->write(timestamp, period);
+      // if (!control_rate.sleep())
+      // if (period.toSec() > expected_cycle_time)
+      // {
+        // ROS_WARN_STREAM("Could not keep cycle rate of " << expected_cycle_time * 1000 << "ms");
+        // ROS_WARN_STREAM("Actual cycle time:" << period.toNSec() / 1000000.0 << "ms");
+      // }
+    }
+    catch (std::exception& e)
+    {
+      ROS_FATAL_STREAM(e.what());
     }
   }
 

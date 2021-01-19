@@ -48,8 +48,8 @@
 #include <ur_controllers/speed_scaling_interface.h>
 #include <ur_controllers/scaled_joint_command_interface.h>
 
-#include <ur_client_library/ur/ur_driver.h>
 #include <ur_client_library/ur/ur_driver_low_bandwidth.h>
+#include <ur_client_library/ur/tool_communication.h>
 #include <ur_robot_driver/action_trajectory_follower_interface.h>
 #include <ur_robot_driver/action_server.h>
 #include <ur_robot_driver/dashboard_client_ros.h>
@@ -128,6 +128,14 @@ public:
    */
   virtual void doSwitch(const std::list<hardware_interface::ControllerInfo>& start_list,
                         const std::list<hardware_interface::ControllerInfo>& stop_list) override;
+
+  /*!
+   * \brief try to connect ur client driver
+   * Try to connect ur client
+   * \return success
+   */
+  bool tryConnectUrClient();
+  bool isUrClientConnected();
 
   /*!
    * \brief Getter for the current control frequency
@@ -276,24 +284,39 @@ protected:
   industrial_robot_status_interface::IndustrialRobotStatusInterface robot_status_interface_{};
 
   uint32_t runtime_state_;
-  bool position_controller_running_;
-  bool velocity_controller_running_;
+  std::atomic<bool> position_controller_running_;
+  std::atomic<bool> velocity_controller_running_;
 
   PausingState pausing_state_;
   double pausing_ramp_up_increment_;
 
   std::string tcp_link_;
-  bool robot_program_running_;
+  std::atomic<bool> robot_program_running_;
   ros::Publisher program_state_pub_;
 
-  bool controller_reset_necessary_;
-  bool controllers_initialized_;
+  std::atomic<bool> controller_reset_necessary_;
+  std::atomic<bool> controllers_initialized_;
 
   bool packet_read_;
   bool non_blocking_read_;
 
   std::string robot_ip_;
   std::string tf_prefix_;
+
+  std::string script_filename_;
+  std::string output_recipe_filename_;
+  std::string input_recipe_filename_;
+  bool headless_mode_;
+  urcl::ToolCommSetup tool_comm_setup_;
+  std::string calibration_checksum_;
+  uint32_t reverse_port_;
+  uint32_t script_sender_port_;
+  double servoj_time_waiting_;
+  int servoj_gain_;
+  double servoj_lookahead_time_;
+  double max_joint_difference_;
+  double max_velocity_;
+
 };
 
 }  // namespace ur_driver

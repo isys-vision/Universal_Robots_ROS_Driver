@@ -26,6 +26,7 @@
 //----------------------------------------------------------------------
 
 #include <ur_robot_driver/dashboard_client_ros.h>
+#include <ur_client_library/exceptions.h>
 
 namespace ur_driver
 {
@@ -88,7 +89,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
       nh_.advertiseService<ur_dashboard_msgs::GetLoadedProgram::Request, ur_dashboard_msgs::GetLoadedProgram::Response>(
           "get_loaded_program",
           [&](ur_dashboard_msgs::GetLoadedProgram::Request& req, ur_dashboard_msgs::GetLoadedProgram::Response& resp) {
-            resp.answer = this->client_.sendAndReceive("get loaded program\n");
+            resp.answer = clientSendAndReceive("get loaded program\n");
             std::smatch match;
             std::regex expected("Loaded program: (.+)");
             resp.success = std::regex_match(resp.answer, match, expected);
@@ -103,7 +104,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
   load_installation_service_ =
       nh_.advertiseService<ur_dashboard_msgs::Load::Request, ur_dashboard_msgs::Load::Response>(
           "load_installation", [&](ur_dashboard_msgs::Load::Request& req, ur_dashboard_msgs::Load::Response& resp) {
-            resp.answer = this->client_.sendAndReceive("load installation " + req.filename + "\n");
+            resp.answer = clientSendAndReceive("load installation " + req.filename + "\n");
             resp.success = std::regex_match(resp.answer, std::regex("Loading installation: .+"));
             return true;
           });
@@ -111,7 +112,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
   // Load a robot program from a file
   load_program_service_ = nh_.advertiseService<ur_dashboard_msgs::Load::Request, ur_dashboard_msgs::Load::Response>(
       "load_program", [&](ur_dashboard_msgs::Load::Request& req, ur_dashboard_msgs::Load::Response& resp) {
-        resp.answer = this->client_.sendAndReceive("load " + req.filename + "\n");
+        resp.answer = clientSendAndReceive("load " + req.filename + "\n");
         resp.success = std::regex_match(resp.answer, std::regex("Loading program: .+"));
         return true;
       });
@@ -122,7 +123,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
   // Service to show a popup on the UR Teach pendant.
   popup_service_ = nh_.advertiseService<ur_dashboard_msgs::Popup::Request, ur_dashboard_msgs::Popup::Response>(
       "popup", [&](ur_dashboard_msgs::Popup::Request& req, ur_dashboard_msgs::Popup::Response& resp) {
-        resp.answer = this->client_.sendAndReceive("popup " + req.message + "\n");
+        resp.answer = clientSendAndReceive("popup " + req.message + "\n");
         resp.success = std::regex_match(resp.answer, std::regex("showing popup"));
 
         return true;
@@ -133,7 +134,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
       nh_.advertiseService<ur_dashboard_msgs::GetProgramState::Request, ur_dashboard_msgs::GetProgramState::Response>(
           "program_state",
           [&](ur_dashboard_msgs::GetProgramState::Request& req, ur_dashboard_msgs::GetProgramState::Response& resp) {
-            resp.answer = this->client_.sendAndReceive("programState\n");
+            resp.answer = clientSendAndReceive("programState\n");
             std::smatch match;
             std::regex expected("(STOPPED|PLAYING|PAUSED) (.+)");
             resp.success = std::regex_match(resp.answer, match, expected);
@@ -155,7 +156,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
   add_to_log_service_ =
       nh_.advertiseService<ur_dashboard_msgs::AddToLog::Request, ur_dashboard_msgs::AddToLog::Response>(
           "add_to_log", [&](ur_dashboard_msgs::AddToLog::Request& req, ur_dashboard_msgs::AddToLog::Response& resp) {
-            resp.answer = this->client_.sendAndReceive("addToLog " + req.message + "\n");
+            resp.answer = clientSendAndReceive("addToLog " + req.message + "\n");
             resp.success = std::regex_match(resp.answer, std::regex("(Added log message|No log message to add)"));
 
             return true;
@@ -166,7 +167,7 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
       nh_.advertiseService<ur_dashboard_msgs::RawRequest::Request, ur_dashboard_msgs::RawRequest::Response>(
           "raw_request",
           [&](ur_dashboard_msgs::RawRequest::Request& req, ur_dashboard_msgs::RawRequest::Response& resp) {
-            resp.answer = this->client_.sendAndReceive(req.query + "\n");
+            resp.answer = clientSendAndReceive(req.query + "\n");
             return true;
           });
 
@@ -180,17 +181,33 @@ DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::str
   // Disconnect from the dashboard service.
   quit_service_ = nh_.advertiseService<std_srvs::Trigger::Request, std_srvs::Trigger::Response>(
       "quit", [&](std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& resp) {
-        resp.message = this->client_.sendAndReceive("quit\n");
+        resp.message = clientSendAndReceive("quit\n");
         resp.success = std::regex_match(resp.message, std::regex("Disconnected"));
         client_.disconnect();
         return true;
-      });
+  });
+}
+
+std::string DashboardClientROS::clientSendAndReceive(const std::string& text)
+{
+    int maxReconnectTries = 2;
+    for (int currTry = 1; currTry < maxReconnectTries+1; currTry++) {
+        try {
+            return client_.sendAndReceive(text);
+        } catch (const urcl::UrException& e) {
+            ROS_ERROR_STREAM("DashboardClient request failed: " << e.what());
+            ROS_ERROR_STREAM("DashboardClient reconnect attempt " << currTry);
+            connect();
+        }
+    }
+    // last try which actually may throw exception
+    return client_.sendAndReceive(text);
 }
 
 bool DashboardClientROS::handleRunningQuery(ur_dashboard_msgs::IsProgramRunning::Request& req,
                                             ur_dashboard_msgs::IsProgramRunning::Response& resp)
 {
-  resp.answer = this->client_.sendAndReceive("running\n");
+  resp.answer = clientSendAndReceive("running\n");
   std::regex expected("Program running: (true|false)");
   std::smatch match;
   resp.success = std::regex_match(resp.answer, match, expected);
@@ -206,7 +223,7 @@ bool DashboardClientROS::handleRunningQuery(ur_dashboard_msgs::IsProgramRunning:
 bool DashboardClientROS::handleSavedQuery(ur_dashboard_msgs::IsProgramSaved::Request& req,
                                           ur_dashboard_msgs::IsProgramSaved::Response& resp)
 {
-  resp.answer = this->client_.sendAndReceive("isProgramSaved\n");
+  resp.answer = clientSendAndReceive("isProgramSaved\n");
   std::regex expected("(true|false) ([^\\s]+)");
   std::smatch match;
   resp.success = std::regex_match(resp.answer, match, expected);
@@ -223,7 +240,7 @@ bool DashboardClientROS::handleSavedQuery(ur_dashboard_msgs::IsProgramSaved::Req
 bool DashboardClientROS::handleSafetyModeQuery(ur_dashboard_msgs::GetSafetyMode::Request& req,
                                                ur_dashboard_msgs::GetSafetyMode::Response& resp)
 {
-  resp.answer = this->client_.sendAndReceive("safetymode\n");
+  resp.answer = clientSendAndReceive("safetymode\n");
   std::smatch match;
   std::regex expected("Safetymode: (.+)");
   resp.success = std::regex_match(resp.answer, match, expected);
@@ -281,7 +298,7 @@ bool DashboardClientROS::handleSafetyModeQuery(ur_dashboard_msgs::GetSafetyMode:
 bool DashboardClientROS::handleRobotModeQuery(ur_dashboard_msgs::GetRobotMode::Request& req,
                                               ur_dashboard_msgs::GetRobotMode::Response& resp)
 {
-  resp.answer = this->client_.sendAndReceive("robotmode\n");
+  resp.answer = clientSendAndReceive("robotmode\n");
   std::smatch match;
   std::regex expected("Robotmode: (.+)");
   resp.success = std::regex_match(resp.answer, match, expected);
@@ -333,6 +350,11 @@ bool DashboardClientROS::handleRobotModeQuery(ur_dashboard_msgs::GetRobotMode::R
 
 bool DashboardClientROS::connect()
 {
+  if (client_.getState() == urcl::comm::SocketState::Connected) {
+    client_.disconnect();
+  }
+
+
   timeval tv;
   // Timeout after which a call to the dashboard server will be considered failure if no answer has
   // been received.

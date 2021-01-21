@@ -78,6 +78,7 @@ private:
 
 public:
   ActionServer(std::shared_ptr<ActionTrajectoryFollowerInterface> follower, std::vector<std::string>& joint_names, double max_velocity);
+  ~ActionServer();
 
   void start();
 //  virtual void onRobotStateChange(RobotState state);

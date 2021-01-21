@@ -128,9 +128,10 @@ int main(int argc, char** argv)
     ROS_ERROR_STREAM("Could not correctly initialize robot. Exiting");
     exit(1);
   }
-  g_hw_interface->tryConnectUrClient();
-  ROS_DEBUG_STREAM("initialized hw interface");
   controller_manager::ControllerManager cm(g_hw_interface.get(), nh);
+  ROS_DEBUG_STREAM("initialized hw interface");
+
+  g_hw_interface->tryConnectUrClient();
 
   // Get current time and elapsed time since last read
   timestamp = ros::Time::now();

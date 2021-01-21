@@ -24,20 +24,35 @@ static const std::array<double, 6> EMPTY_VALUES = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 LowBandwidthTrajectoryFollower::LowBandwidthTrajectoryFollower(uint32_t reverse_port, std::function<void(bool)> handle_program_state)
   : reverse_port_(reverse_port)
   , handle_program_state_(handle_program_state)
-    , comm_thread_()
-    , connected_(false)
-    , cancel_request_(false)
-    , trajectory_execution_finished_(false)
-    , trajectory_execution_success_(false)
+  , comm_thread_()
+  , running_comm_thread_(false)
+  , connected_(false)
+  , cancel_request_(false)
+  , trajectory_execution_finished_(false)
+  , trajectory_execution_success_(false)
 {
+  running_comm_thread_ = true;
   comm_thread_ = std::thread(&LowBandwidthTrajectoryFollower::runSocketComm, this);
   ROS_INFO("Low Bandwidth Trajectory Follower is initialized!");
+}
+
+LowBandwidthTrajectoryFollower::~LowBandwidthTrajectoryFollower()
+{
+    running_comm_thread_ = false;
+    if (comm_thread_.joinable())
+    {
+      comm_thread_.join();
+    }
 }
 
 bool LowBandwidthTrajectoryFollower::executePoint(const std::array<double, 6> &positions,
                                                      const std::array<double, 6> &velocities, double sample_number,
                                                      double time_in_seconds, bool is_sentinel)
 {
+  if (!running_comm_thread_) {
+      ROS_ERROR("Execute Point not possible, communication thread not running");
+      return false;
+  }
   if (!connected_ && server_) {
     ROS_ERROR("Execute Point not possible, no connection to robot");
     return false;
@@ -72,7 +87,7 @@ bool LowBandwidthTrajectoryFollower::executePoint(const std::array<double, 6> &p
 
 void LowBandwidthTrajectoryFollower::runSocketComm()
 {
-    while (true)    // reconnect loop
+    while (running_comm_thread_)    // reconnect loop
     {
         ROS_INFO("Awaiting incoming robot connection");
         server_.reset(new urcl::comm::URServer(reverse_port_));
@@ -96,7 +111,7 @@ void LowBandwidthTrajectoryFollower::runSocketComm()
         std::vector<TrajectoryPoint> current_trajectory;
 
 
-        while (true) {   // keepalive and process trajectory loop
+        while (running_comm_thread_) {   // keepalive and process trajectory loop
 
             // Fetch new trajectories, trajectory_execution_finished_ signals status
             if (current_trajectory.empty()){
@@ -184,7 +199,7 @@ bool LowBandwidthTrajectoryFollower::execute(std::vector<TrajectoryPoint> &traje
         trajectory_ = trajectory;   // starts execution of trajectory
     }
     trajectory_execution_finished_ = false;
-    while (!trajectory_execution_finished_) {
+    while (!trajectory_execution_finished_ && running_comm_thread_) {
         cancel_request_ = (bool) interrupt;
     }
     ROS_INFO("Execute done, returning result (cancel: %i)", (int) cancel_request_);

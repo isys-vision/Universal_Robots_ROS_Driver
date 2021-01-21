@@ -34,7 +34,10 @@ namespace ur_driver
 DashboardClientROS::DashboardClientROS(const ros::NodeHandle& nh, const std::string& robot_ip)
   : nh_(nh), client_(robot_ip)
 {
-  connect();
+  if (!connect())
+  {
+    ROS_ERROR("[DashboardClient] Connecting to UR dashboard failed.");
+  }
 
   // Service to release the brakes. If the robot is currently powered off, it will get powered on on the fly.
   brake_release_service_ = create_dashboard_trigger_srv("brake_release", "brake release\n", "Brake releasing");
@@ -200,8 +203,8 @@ std::string DashboardClientROS::clientSendAndReceive(const std::string& text)
         try {
             return client_.sendAndReceive(text);
         } catch (const urcl::UrException& e) {
-            ROS_ERROR_STREAM("DashboardClient request failed: " << e.what());
-            ROS_ERROR_STREAM("DashboardClient reconnect attempt " << currTry);
+            ROS_ERROR_STREAM("[DashboardClient] request failed: " << e.what());
+            ROS_ERROR_STREAM("[DashboardClient] reconnect attempt " << currTry);
             connect();
         }
     }

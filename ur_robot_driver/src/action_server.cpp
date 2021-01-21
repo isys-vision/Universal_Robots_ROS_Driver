@@ -36,6 +36,15 @@ ActionServer::ActionServer(std::shared_ptr<ActionTrajectoryFollowerInterface> fo
 {
 }
 
+ActionServer::~ActionServer()
+{
+    running_ = false;
+    if (tj_thread_.joinable())
+    {
+      tj_thread_.join();
+    }
+}
+
 void ActionServer::start()
 {
   if (running_)

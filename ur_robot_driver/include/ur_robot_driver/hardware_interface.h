@@ -364,6 +364,7 @@ protected:
   std::string output_recipe_filename_;
   std::string input_recipe_filename_;
   bool headless_mode_;
+  bool use_tool_communication_;
   urcl::ToolCommSetup tool_comm_setup_;
   std::string calibration_checksum_;
   uint32_t reverse_port_;

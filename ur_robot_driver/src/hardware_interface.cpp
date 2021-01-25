@@ -191,8 +191,8 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   // Should the tool's RS485 interface be forwarded to the ROS machine? This is only available on
   // e-Series models. Setting this parameter to TRUE requires multiple other parameters to be set,as
   // well.
-  bool use_tool_communication = robot_hw_nh.param<bool>("use_tool_communication", "false");
-  if (use_tool_communication)
+  use_tool_communication_ = robot_hw_nh.param<bool>("use_tool_communication", "false");
+  if (use_tool_communication_)
   {
     using ToolVoltageT = std::underlying_type<urcl::ToolVoltage>::type;
     ToolVoltageT tool_voltage;
@@ -442,6 +442,12 @@ bool HardwareInterface::tryConnectUrClient()
   ROS_INFO_STREAM("Initializing urdriver");
   try
   {
+    std::unique_ptr<urcl::ToolCommSetup> tool_comm_setup;
+    if (use_tool_communication_)
+    {
+      tool_comm_setup.reset(new urcl::ToolCommSetup(tool_comm_setup_));
+    }
+
     ur_driver_.reset(new urcl::UrDriver(
         robot_ip_, script_filename_, output_recipe_filename_, input_recipe_filename_,
         std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1), headless_mode_,

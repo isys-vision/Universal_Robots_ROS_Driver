@@ -80,6 +80,12 @@ HardwareInterface::HardwareInterface()
 {
 }
 
+HardwareInterface::~HardwareInterface()
+{
+    // Shut down communication to UR driver first avoids for clean termination
+    ur_driver_.reset();
+}
+
 bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw_nh)
 {
   joint_velocities_ = { { 0, 0, 0, 0, 0, 0 } };

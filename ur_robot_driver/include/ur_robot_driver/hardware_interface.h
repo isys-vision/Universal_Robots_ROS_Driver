@@ -83,7 +83,7 @@ public:
    * \brief Creates a new HardwareInterface object.
    */
   HardwareInterface();
-  virtual ~HardwareInterface() = default;
+  ~HardwareInterface();
   /*!
    * \brief Handles the setup functionality for the ROS interface. This includes parsing ROS
    * parameters, creating interfaces, starting the main driver and advertising ROS services.

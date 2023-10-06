@@ -294,10 +294,14 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
     //     std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1), headless_mode,
     //     std::move(tool_comm_setup), (uint32_t)reverse_port, (uint32_t)script_sender_port, servoj_gain,
     //     servoj_lookahead_time, non_blocking_read_, reverse_ip, trajectory_port, script_command_port));
+
+    std::unique_ptr<urcl::ToolCommSetup> tool_comm_setup;  
+    tool_comm_setup.reset(new urcl::ToolCommSetup(tool_comm_setup_));
+
     ur_driver_.reset(
         new urcl::UrDriverLowBandwidth(robot_ip_, script_filename_, output_recipe_filename_, input_recipe_filename_,
                            std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1),
-                           headless_mode_, std::move(tool_comm_setup_), calibration_checksum_, (uint32_t)reverse_port_,
+                           headless_mode_, std::move(tool_comm_setup), calibration_checksum_, (uint32_t)reverse_port_,
                            (uint32_t)script_sender_port_, servoj_time_waiting_, servoj_gain_,
                            servoj_lookahead_time_, non_blocking_read_,
                            max_joint_difference_, max_velocity_));

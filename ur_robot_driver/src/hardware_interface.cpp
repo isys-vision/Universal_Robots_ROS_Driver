@@ -334,8 +334,8 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   //                    "[https://github.com/UniversalRobots/Universal_Robots_ROS_Driver#extract-calibration-information] "
   //                    "for details.");
   // }
-  ur_driver_->registerTrajectoryDoneCallback(
-      std::bind(&HardwareInterface::passthroughTrajectoryDoneCb, this, std::placeholders::_1));
+  // ur_driver_->registerTrajectoryDoneCallback(
+  //     std::bind(&HardwareInterface::passthroughTrajectoryDoneCb, this, std::placeholders::_1));
 
   // Send arbitrary script commands to this topic. Note: On e-Series the robot has to be in
   // remote-control mode.
@@ -1207,10 +1207,10 @@ bool HardwareInterface::setIO(ur_msgs::SetIORequest& req, ur_msgs::SetIOResponse
   {
     res.success = ur_driver_->getRTDEWriter().sendStandardAnalogOutput(req.pin, req.state);
   }
-  else if (req.fun == req.FUN_SET_TOOL_VOLTAGE && ur_driver_ != nullptr)
-  {
-    res.success = ur_driver_->setToolVoltage(static_cast<urcl::ToolVoltage>(req.state));
-  }
+  // else if (req.fun == req.FUN_SET_TOOL_VOLTAGE && ur_driver_ != nullptr)
+  // {
+  //   res.success = ur_driver_->setToolVoltage(static_cast<urcl::ToolVoltage>(req.state));
+  // }
   else
   {
     ROS_ERROR("Cannot execute function %u. This is not (yet) supported.", req.fun);
@@ -1259,7 +1259,8 @@ bool HardwareInterface::zeroFTSensor(std_srvs::TriggerRequest& req, std_srvs::Tr
   }
   else
   {
-    res.success = this->ur_driver_->zeroFTSensor();
+    res.success = false;
+    //res.success = this->ur_driver_->zeroFTSensor();
   }
   return true;
 }
@@ -1371,7 +1372,7 @@ void HardwareInterface::startJointInterpolation(const hardware_interface::JointT
     p[4] = point.positions[4];
     p[5] = point.positions[5];
     double next_time = point.time_from_start.toSec();
-    ur_driver_->writeTrajectoryPoint(p, false, next_time - last_time);
+    // ur_driver_->writeTrajectoryPoint(p, false, next_time - last_time);
     last_time = next_time;
   }
   ROS_DEBUG("Finished Sending Trajectory");
@@ -1399,7 +1400,7 @@ void HardwareInterface::startCartesianInterpolation(const hardware_interface::Ca
     p[4] = rot.GetRot().y();
     p[5] = rot.GetRot().z();
     double next_time = point.time_from_start.toSec();
-    ur_driver_->writeTrajectoryPoint(p, true, next_time - last_time);
+    // ur_driver_->writeTrajectoryPoint(p, true, next_time - last_time);
     last_time = next_time;
   }
   ROS_DEBUG("Finished Sending Trajectory");

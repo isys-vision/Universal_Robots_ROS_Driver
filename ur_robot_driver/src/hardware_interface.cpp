@@ -295,12 +295,12 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
     //     std::move(tool_comm_setup), (uint32_t)reverse_port, (uint32_t)script_sender_port, servoj_gain,
     //     servoj_lookahead_time, non_blocking_read_, reverse_ip, trajectory_port, script_command_port));
     ur_driver_.reset(
-        new urcl::UrDriverLowBandwidth(robot_ip_, script_filename, output_recipe_filename, input_recipe_filename,
+        new urcl::UrDriverLowBandwidth(robot_ip_, script_filename_, output_recipe_filename_, input_recipe_filename_,
                            std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1),
-                           headless_mode, std::move(tool_comm_setup), calibration_checksum_, (uint32_t)reverse_port,
-                           (uint32_t)script_sender_port, servoj_time_waiting, servoj_gain,
-                           servoj_lookahead_time, non_blocking_read_,
-                           max_joint_difference, max_velocity));
+                           headless_mode_, std::move(tool_comm_setup_), calibration_checksum_, (uint32_t)reverse_port_,
+                           (uint32_t)script_sender_port_, servoj_time_waiting_, servoj_gain_,
+                           servoj_lookahead_time_, non_blocking_read_,
+                           max_joint_difference_, max_velocity_));
   }
   catch (urcl::ToolCommNotAvailable& e)
   {
@@ -1262,11 +1262,11 @@ bool HardwareInterface::zeroFTSensor(std_srvs::TriggerRequest& req, std_srvs::Tr
 
 bool HardwareInterface::setPayload(ur_msgs::SetPayloadRequest& req, ur_msgs::SetPayloadResponse& res)
 {
-  resp.success = false;
+  res.success = false;
   if (this->ur_driver_ == nullptr)
   {
     ROS_ERROR("Set payload failed, robot not connected");
-    resp.success = false;
+    res.success = false;
     return true;
   }
   std::stringstream cmd;
@@ -1275,7 +1275,7 @@ bool HardwareInterface::setPayload(ur_msgs::SetPayloadRequest& req, ur_msgs::Set
       << " set_payload(" << req.mass << ", [" << req.center_of_gravity.x << ", " << req.center_of_gravity.y
       << ", " << req.center_of_gravity.z << "])" << std::endl
       << "end";
-  resp.success = this->ur_driver_->sendScript(cmd.str());
+  res.success = this->ur_driver_->sendScript(cmd.str());
   return true;
 }
 

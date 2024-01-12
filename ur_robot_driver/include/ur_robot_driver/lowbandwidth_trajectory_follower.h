@@ -27,7 +27,7 @@
 #include <thread>
 #include <vector>
 #include "ur_robot_driver/action_trajectory_follower_interface.h"
-#include "ur_client_library/comm/server.h"
+#include "ur_client_library/comm/tcp_server.h"
 
 class LowBandwidthTrajectoryFollower : public ActionTrajectoryFollowerInterface
 {
@@ -49,16 +49,22 @@ private:
   std::thread comm_thread_;
   std::atomic<bool> running_comm_thread_;
   std::atomic<bool> connected_;
-  std::unique_ptr<urcl::comm::URServer> server_;
+  std::unique_ptr<urcl::comm::TCPServer> server_;
 
   std::mutex trajectory_mutex_;
   std::vector<TrajectoryPoint> trajectory_;
   std::atomic<bool> cancel_request_;
   std::atomic<bool> trajectory_execution_finished_;
   std::atomic<bool> trajectory_execution_success_;
+  int client_fd_;
+  int sent_message_num_;
+  std::vector<TrajectoryPoint> current_trajectory_;
 
   void runSocketComm();
   bool executePoint(const std::array<double, 6> &positions, const std::array<double, 6> &velocities, double sample_number,
                     double time_in_seconds, bool is_sentinel);
 
+  void connectionCallback(const int filedescriptor);
+  void disconnectionCallback(const int filedescriptor);
+  void messageCallback(const int filedescriptor, char* buffer, int nbytesrecv);
 };

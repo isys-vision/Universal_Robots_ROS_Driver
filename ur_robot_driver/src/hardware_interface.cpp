@@ -289,8 +289,10 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
   ros::NodeHandle dashboard_nh(robot_hw_nh, "dashboard");
   dashboard_client_.reset(new DashboardClientROS(dashboard_nh, robot_ip_));
   
+  /*
+  TODO: Funktioniert nicht bei lowbandwidth, muss an upstream angepasst werden
   URCL_LOG_INFO("Checking if calibration data matches connected robot.");
-  if (ur_driver_->checkCalibration(calibration_checksum))
+  if (ur_driver_->checkCalibration(calibration_checksum_))
   {
     ROS_INFO_STREAM("Calibration checked successfully.");
   }
@@ -302,9 +304,38 @@ bool HardwareInterface::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw
                      "description. See "
                      "[https://github.com/UniversalRobots/Universal_Robots_ROS_Driver#extract-calibration-information] "
                      "for details.");
+  }*/
+
+ROS_INFO_STREAM("Initializing urdriver");
+  try
+  {
+    std::unique_ptr<urcl::ToolCommSetup> tool_comm_setup;
+    tool_comm_setup.reset(new urcl::ToolCommSetup(tool_comm_setup_));
+
+    ur_driver_.reset(
+        new urcl::UrDriverLowBandwidth(robot_ip_, script_filename_, output_recipe_filename_, input_recipe_filename_,
+                           std::bind(&HardwareInterface::handleRobotProgramState, this, std::placeholders::_1),
+                           headless_mode_, std::move(tool_comm_setup), calibration_checksum_, (uint32_t)reverse_port_,
+                           (uint32_t)script_sender_port_, servoj_time_waiting_, servoj_gain_,
+                           servoj_lookahead_time_, non_blocking_read_,
+                           max_joint_difference_, max_velocity_));
   }
-  ur_driver_->registerTrajectoryDoneCallback(
-      std::bind(&HardwareInterface::passthroughTrajectoryDoneCb, this, std::placeholders::_1));
+  catch (urcl::ToolCommNotAvailable& e)
+  {
+    ROS_FATAL_STREAM(e.what() << " See parameter '" << robot_hw_nh.resolveName("use_tool_communication") << "'.");
+    return false;
+  }
+  catch (urcl::UrException& e)
+  {
+    ROS_FATAL_STREAM(e.what() << std::endl
+                              << "Please note that the minimum software version required is 3.12.0 for CB3 robots and "
+                                 "5.5.1 for e-Series robots. The error above could be related to a non-supported "
+                                 "polyscope version. Please update your robot's software accordingly.");
+    return false;
+  }
+
+  //ur_driver_->registerTrajectoryDoneCallback(
+  //    std::bind(&HardwareInterface::passthroughTrajectoryDoneCb, this, std::placeholders::_1));
 
   // Send arbitrary script commands to this topic. Note: On e-Series the robot has to be in
   // remote-control mode.
@@ -1181,10 +1212,10 @@ bool HardwareInterface::setIO(ur_msgs::SetIORequest& req, ur_msgs::SetIOResponse
   {
     res.success = ur_driver_->getRTDEWriter().sendStandardAnalogOutput(req.pin, req.state);
   }
-  else if (req.fun == req.FUN_SET_TOOL_VOLTAGE && ur_driver_ != nullptr)
-  {
-    res.success = ur_driver_->setToolVoltage(static_cast<urcl::ToolVoltage>(req.state));
-  }
+  //else if (req.fun == req.FUN_SET_TOOL_VOLTAGE && ur_driver_ != nullptr)
+  //{
+  //  res.success = ur_driver_->setToolVoltage(static_cast<urcl::ToolVoltage>(req.state));
+  //}
   else
   {
     ROS_ERROR("Cannot execute function %u. This is not (yet) supported.", req.fun);
@@ -1233,7 +1264,8 @@ bool HardwareInterface::zeroFTSensor(std_srvs::TriggerRequest& req, std_srvs::Tr
   }
   else
   {
-    res.success = this->ur_driver_->zeroFTSensor();
+    //res.success = this->ur_driver_->zeroFTSensor();
+    res.success = false;
   }
   return true;
 }
@@ -1244,7 +1276,7 @@ bool HardwareInterface::setPayload(ur_msgs::SetPayloadRequest& req, ur_msgs::Set
   cog[0] = req.center_of_gravity.x;
   cog[1] = req.center_of_gravity.y;
   cog[2] = req.center_of_gravity.z;
-  res.success = this->ur_driver_->setPayload(req.mass, cog);
+  //res.success = this->ur_driver_->setPayload(req.mass, cog);
   return true;
 }
 
@@ -1353,7 +1385,7 @@ void HardwareInterface::startJointInterpolation(const hardware_interface::JointT
     double next_time = point.time_from_start.toSec();
     if (!use_spline_interpolation_)
     {
-      ur_driver_->writeTrajectoryPoint(p, false, next_time - last_time);
+      //ur_driver_->writeTrajectoryPoint(p, false, next_time - last_time);
     }
     else  // Use spline interpolation
     {
@@ -1373,7 +1405,7 @@ void HardwareInterface::startJointInterpolation(const hardware_interface::JointT
         a[3] = point.accelerations[3];
         a[4] = point.accelerations[4];
         a[5] = point.accelerations[5];
-        ur_driver_->writeTrajectorySplinePoint(p, v, a, next_time - last_time);
+        //ur_driver_->writeTrajectorySplinePoint(p, v, a, next_time - last_time);
       }
       else if (point.velocities.size() == 6)
       {
@@ -1384,7 +1416,7 @@ void HardwareInterface::startJointInterpolation(const hardware_interface::JointT
         v[3] = point.velocities[3];
         v[4] = point.velocities[4];
         v[5] = point.velocities[5];
-        ur_driver_->writeTrajectorySplinePoint(p, v, next_time - last_time);
+        //ur_driver_->writeTrajectorySplinePoint(p, v, next_time - last_time);
       }
       else
       {
@@ -1418,7 +1450,7 @@ void HardwareInterface::startCartesianInterpolation(const hardware_interface::Ca
     p[4] = rot.GetRot().y();
     p[5] = rot.GetRot().z();
     double next_time = point.time_from_start.toSec();
-    ur_driver_->writeTrajectoryPoint(p, true, next_time - last_time);
+    //ur_driver_->writeTrajectoryPoint(p, true, next_time - last_time);
     last_time = next_time;
   }
   ROS_DEBUG("Finished Sending Trajectory");

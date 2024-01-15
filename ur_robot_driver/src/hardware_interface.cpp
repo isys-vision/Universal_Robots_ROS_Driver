@@ -1212,10 +1212,10 @@ bool HardwareInterface::setIO(ur_msgs::SetIORequest& req, ur_msgs::SetIOResponse
   {
     res.success = ur_driver_->getRTDEWriter().sendStandardAnalogOutput(req.pin, req.state);
   }
-  //else if (req.fun == req.FUN_SET_TOOL_VOLTAGE && ur_driver_ != nullptr)
-  //{
-  //  res.success = ur_driver_->setToolVoltage(static_cast<urcl::ToolVoltage>(req.state));
-  //}
+  else if (req.fun == req.FUN_SET_TOOL_VOLTAGE && ur_driver_ != nullptr)
+  {
+    res.success = ur_driver_->setToolVoltage(static_cast<urcl::ToolVoltage>(req.state));
+  }
   else
   {
     ROS_ERROR("Cannot execute function %u. This is not (yet) supported.", req.fun);
@@ -1264,8 +1264,7 @@ bool HardwareInterface::zeroFTSensor(std_srvs::TriggerRequest& req, std_srvs::Tr
   }
   else
   {
-    //res.success = this->ur_driver_->zeroFTSensor();
-    res.success = false;
+    res.success = this->ur_driver_->zeroFTSensor();
   }
   return true;
 }
@@ -1276,7 +1275,7 @@ bool HardwareInterface::setPayload(ur_msgs::SetPayloadRequest& req, ur_msgs::Set
   cog[0] = req.center_of_gravity.x;
   cog[1] = req.center_of_gravity.y;
   cog[2] = req.center_of_gravity.z;
-  //res.success = this->ur_driver_->setPayload(req.mass, cog);
+  res.success = this->ur_driver_->setPayload(req.mass, cog);
   return true;
 }
 

@@ -34,8 +34,6 @@ class LowBandwidthTrajectoryFollower : public ActionTrajectoryFollowerInterface
 public:
   LowBandwidthTrajectoryFollower(uint32_t reverse_port, std::function<void(bool)> handle_program_state);
 
-  ~LowBandwidthTrajectoryFollower();
-
   bool start();
   bool execute(std::vector<TrajectoryPoint> &trajectory, std::atomic<bool> &interrupt);
   void stop();
@@ -46,8 +44,6 @@ private:
   int reverse_port_;
   std::function<void(bool)> handle_program_state_;
 
-  std::thread comm_thread_;
-  std::atomic<bool> running_comm_thread_;
   std::atomic<bool> connected_;
   std::unique_ptr<urcl::comm::TCPServer> server_;
 

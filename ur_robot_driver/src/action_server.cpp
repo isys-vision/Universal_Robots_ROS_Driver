@@ -23,8 +23,8 @@
 
 ActionServer::ActionServer(std::shared_ptr<ActionTrajectoryFollowerInterface> follower, std::vector<std::string>& joint_names,
                            double max_velocity)
-  : as_(nh_, "follow_joint_trajectory", boost::bind(&ActionServer::onGoal, this, _1),
-        boost::bind(&ActionServer::onCancel, this, _1), false)
+  : as_(nh_, "follow_joint_trajectory", boost::bind(&ActionServer::onGoal, this, boost::placeholders::_1),
+        boost::bind(&ActionServer::onCancel, this, boost::placeholders::_1), false)
   , joint_names_(joint_names)
   , joint_set_(joint_names.begin(), joint_names.end())
   , max_velocity_(max_velocity)

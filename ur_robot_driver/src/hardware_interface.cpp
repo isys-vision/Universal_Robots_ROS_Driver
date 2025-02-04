@@ -1307,7 +1307,10 @@ void HardwareInterface::startJointInterpolation(const hardware_interface::JointT
     double next_time = point.time_from_start.toSec();
     if (!use_spline_interpolation_)
     {
-      ur_driver_->writeTrajectoryPoint(p, false, next_time - last_time);
+      // The blend radius must be smaller than half the distance between the closest waypoints
+      // If the blend radius of a waypoint overlaps with the blend radius of previous or following waypoints, this waypoint will be skipped
+      // As some of the trajectories can be interpolated very closely, we have to set this value to 0 or very close to 0 to avoid problems during execution
+      ur_driver_->writeTrajectoryPoint(p, false, next_time - last_time, 0.002);
     }
     else  // Use spline interpolation
     {
@@ -1372,7 +1375,11 @@ void HardwareInterface::startCartesianInterpolation(const hardware_interface::Ca
     p[4] = rot.GetRot().y();
     p[5] = rot.GetRot().z();
     double next_time = point.time_from_start.toSec();
-    ur_driver_->writeTrajectoryPoint(p, true, next_time - last_time);
+
+    // The blend radius must be smaller than half the distance between the closest waypoints
+    // If the blend radius of a waypoint overlaps with the blend radius of previous or following waypoints, this waypoint will be skipped
+    // As some of the trajectories can be interpolated very closely, we have to set this value to 0 or very close to 0 to avoid problems during execution
+    ur_driver_->writeTrajectoryPoint(p, true, next_time - last_time, 0.002);
     last_time = next_time;
   }
   ROS_DEBUG("Finished Sending Trajectory");

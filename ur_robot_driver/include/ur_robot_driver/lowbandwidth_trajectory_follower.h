@@ -27,37 +27,39 @@
 #include <thread>
 #include <vector>
 #include "ur_robot_driver/action_trajectory_follower_interface.h"
-#include "ur_client_library/comm/server.h"
+#include "ur_client_library/comm/tcp_server.h"
 
 class LowBandwidthTrajectoryFollower : public ActionTrajectoryFollowerInterface
 {
 public:
   LowBandwidthTrajectoryFollower(uint32_t reverse_port, std::function<void(bool)> handle_program_state);
 
-  ~LowBandwidthTrajectoryFollower();
+  ~LowBandwidthTrajectoryFollower(){};
 
   bool start();
   bool execute(std::vector<TrajectoryPoint> &trajectory, std::atomic<bool> &interrupt);
   void stop();
 
-  bool isConnected();
-
 private:
   int reverse_port_;
   std::function<void(bool)> handle_program_state_;
 
-  std::thread comm_thread_;
-  std::atomic<bool> running_comm_thread_;
-  std::atomic<bool> connected_;
-  std::unique_ptr<urcl::comm::URServer> server_;
+  urcl::comm::TCPServer server_;
 
   std::mutex trajectory_mutex_;
   std::vector<TrajectoryPoint> trajectory_;
+  std::vector<TrajectoryPoint> current_trajectory_;
   std::atomic<bool> cancel_request_;
   std::atomic<bool> trajectory_execution_finished_;
   std::atomic<bool> trajectory_execution_success_;
 
-  void runSocketComm();
+  int client_fd_;
+  int sent_message_num_;
+
+  void connectionCallback(const int filedescriptor);
+  void disconnectionCallback(const int filedescriptor);
+  void messageCallback(const int filedescriptor, char* buffer);
+
   bool executePoint(const std::array<double, 6> &positions, const std::array<double, 6> &velocities, double sample_number,
                     double time_in_seconds, bool is_sentinel);
 

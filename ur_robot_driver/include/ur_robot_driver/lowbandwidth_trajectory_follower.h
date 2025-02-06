@@ -46,6 +46,8 @@ private:
 
   urcl::comm::TCPServer server_;
 
+  std::atomic<std::chrono::steady_clock::time_point> last_message_timestamp_;
+
   std::mutex trajectory_mutex_;
   std::vector<TrajectoryPoint> trajectory_;
   std::vector<TrajectoryPoint> current_trajectory_;

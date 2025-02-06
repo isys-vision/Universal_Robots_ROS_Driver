@@ -18,6 +18,7 @@
 #include <endian.h>
 #include <ros/ros.h>
 #include <cmath>
+#include <chrono>
 
 static const std::array<double, 6> EMPTY_VALUES = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
@@ -84,18 +85,31 @@ bool LowBandwidthTrajectoryFollower::start()
 
 bool LowBandwidthTrajectoryFollower::execute(std::vector<TrajectoryPoint> &trajectory, std::atomic<bool> &interrupt)
 {
-    // TODO: in some cases the driver gets stuck in this execute loop
-    // - if many trajectories are sent in quick succession, i.e. if the jogging buttons are pressed in very quick succession
-    // - unplugging the cable immediately stops messageCallback() from reveiving any messages and without a disconnectionCallback() for some reason
-    //   'trajectory_execution_finished_' is then never set to true if this happens while executing a trajectory.
     ROS_INFO("[LowBandwidthTrajectoryFollower] Starting execution of trajectory request");
     {
         std::unique_lock<std::mutex> trajectory_lock (trajectory_mutex_);
         trajectory_ = trajectory;   // starts execution of trajectory
     }
+
+    // Initialize watchdog
+    const std::chrono::milliseconds messageCallbackTimeout(1000);
+    last_message_timestamp_.store(std::chrono::steady_clock::now()); // reset watchdog
+
+    // Wait for trajectory execution to finish and handle watchdog
     trajectory_execution_finished_ = false;
     while (!trajectory_execution_finished_) {
         cancel_request_ = (bool) interrupt;
+
+        // check watchdog
+        auto now = std::chrono::steady_clock::now();
+        auto last = last_message_timestamp_.load();
+        if (now - last > messageCallbackTimeout) {
+            ROS_ERROR("[LowBandwidthTrajectoryFollower] No message received from robot within timeout (%d ms) during trajectory execution! Aborting trajectory execution.", static_cast<int>(messageCallbackTimeout.count()));
+            sent_message_num_ = -1;
+            trajectory_execution_finished_ = true;
+            trajectory_execution_success_ = false;
+            current_trajectory_.clear();
+        }
     }
     ROS_INFO("[LowBandwidthTrajectoryFollower] Execute done, returning result (cancel: %i)", (int) cancel_request_);
 
@@ -129,11 +143,14 @@ void LowBandwidthTrajectoryFollower::disconnectionCallback(const int filedescrip
     handle_program_state_(false);
     sent_message_num_ = -1;
     trajectory_execution_finished_ = true;
+    trajectory_execution_success_ = false;
     current_trajectory_.clear();
 }
 
 void LowBandwidthTrajectoryFollower::messageCallback(const int filedescriptor, char* buffer)
 {
+    last_message_timestamp_.store(std::chrono::steady_clock::now()); // Signal that a message was received
+
     // Fetch new trajectories, trajectory_execution_finished_ signals status
     if (current_trajectory_.empty()){
         std::unique_lock<std::mutex> trajectory_lock (trajectory_mutex_);

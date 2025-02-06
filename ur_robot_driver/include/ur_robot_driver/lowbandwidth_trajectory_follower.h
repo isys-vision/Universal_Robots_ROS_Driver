@@ -46,6 +46,8 @@ private:
 
   urcl::comm::TCPServer server_;
 
+  std::atomic<bool> watchdog_reset_;
+
   std::mutex trajectory_mutex_;
   std::vector<TrajectoryPoint> trajectory_;
   std::vector<TrajectoryPoint> current_trajectory_;

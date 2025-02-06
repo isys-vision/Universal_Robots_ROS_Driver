@@ -18,6 +18,7 @@
 #include <endian.h>
 #include <ros/ros.h>
 #include <cmath>
+#include <chrono>
 
 static const std::array<double, 6> EMPTY_VALUES = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
@@ -25,6 +26,7 @@ LowBandwidthTrajectoryFollower::LowBandwidthTrajectoryFollower(uint32_t reverse_
   : reverse_port_(reverse_port)
   , handle_program_state_(handle_program_state)
   , server_(reverse_port)
+  , watchdog_reset_(false)
   , cancel_request_(false)
   , trajectory_execution_finished_(false)
   , trajectory_execution_success_(false)
@@ -93,9 +95,30 @@ bool LowBandwidthTrajectoryFollower::execute(std::vector<TrajectoryPoint> &traje
         std::unique_lock<std::mutex> trajectory_lock (trajectory_mutex_);
         trajectory_ = trajectory;   // starts execution of trajectory
     }
+
+    // Initialize watchdog
+    const std::chrono::milliseconds messageCallbackTimeout(1000);
+    auto lastMessageCallbackTime = std::chrono::steady_clock::now();
+    watchdog_reset_ = true;
+
+    // Wait for trajectory execution to finish and handle watchdog
     trajectory_execution_finished_ = false;
     while (!trajectory_execution_finished_) {
         cancel_request_ = (bool) interrupt;
+
+        if (watchdog_reset_) {
+            lastMessageCallbackTime = std::chrono::steady_clock::now();
+            watchdog_reset_ = false;
+        } else {
+            auto now = std::chrono::steady_clock::now();
+            if (now - lastMessageCallbackTime > messageCallbackTimeout) {
+                ROS_ERROR("[LowBandwidthTrajectoryFollower] No message received from robot within timeout (%d ms) during trajectory execution! Connection to robot lost.", static_cast<int>(messageCallbackTimeout.count()));
+                sent_message_num_ = -1;
+                trajectory_execution_finished_ = true;
+                trajectory_execution_success_ = false;
+                current_trajectory_.clear();
+            }
+        }
     }
     ROS_INFO("[LowBandwidthTrajectoryFollower] Execute done, returning result (cancel: %i)", (int) cancel_request_);
 
@@ -129,11 +152,14 @@ void LowBandwidthTrajectoryFollower::disconnectionCallback(const int filedescrip
     handle_program_state_(false);
     sent_message_num_ = -1;
     trajectory_execution_finished_ = true;
+    trajectory_execution_success_ = false;
     current_trajectory_.clear();
 }
 
 void LowBandwidthTrajectoryFollower::messageCallback(const int filedescriptor, char* buffer)
 {
+    watchdog_reset_ = true; // Signal that a message was received
+
     // Fetch new trajectories, trajectory_execution_finished_ signals status
     if (current_trajectory_.empty()){
         std::unique_lock<std::mutex> trajectory_lock (trajectory_mutex_);

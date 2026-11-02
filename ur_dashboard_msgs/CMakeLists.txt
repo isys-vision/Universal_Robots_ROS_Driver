@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.14.0)
 project(ur_dashboard_msgs)
 
 ## Find catkin macros and libraries

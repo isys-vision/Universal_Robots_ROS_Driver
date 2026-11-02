@@ -42,7 +42,7 @@ find_package(catkin REQUIRED
     pass_through_controllers
     kdl_parser
 )
-find_package(Boost REQUIRED)
+find_package(Boost CONFIG REQUIRED)
 find_package(ur_client_library REQUIRED)
 
 catkin_package(

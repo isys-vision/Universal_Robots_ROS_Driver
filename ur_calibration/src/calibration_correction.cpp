@@ -108,7 +108,7 @@ public:
       return false;
     }
 
-    fs::path out_path = fs::complete(output_filename_);
+    fs::path out_path = fs::absolute(output_filename_);
 
     fs::path dst_path = out_path.parent_path();
     if (!fs::exists(dst_path))

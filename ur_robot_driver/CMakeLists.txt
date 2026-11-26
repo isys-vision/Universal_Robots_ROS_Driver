@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.14.0)
 project(ur_robot_driver)
 
 add_definitions( -DROS_BUILD )
@@ -42,7 +42,7 @@ find_package(catkin REQUIRED
     pass_through_controllers
     kdl_parser
 )
-find_package(Boost REQUIRED)
+find_package(Boost CONFIG REQUIRED)
 find_package(ur_client_library REQUIRED)
 
 catkin_package(
